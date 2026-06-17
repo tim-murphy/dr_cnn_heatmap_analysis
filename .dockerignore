@@ -1,0 +1,11 @@
+.git
+refer*
+grade*
+trained_*
+util
+__pycache__
+heatmaps_*
+heatmap_images
+accuracy_*
+dice_lesions_*
+train_docker.sh
