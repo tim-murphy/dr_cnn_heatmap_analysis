@@ -8,6 +8,7 @@ import argparse
 import csv
 import matplotlib.pyplot as plt
 import os
+from statistics import median
 
 from models import string_to_model
 
@@ -24,7 +25,7 @@ FEATURES = {
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dice_stats_csv", type=str, required=True,
+    parser.add_argument("--dice_stats_csv", nargs="+", required=True,
                         help="dice_stats_otsu.csv (or similar)")
     parser.add_argument("--lesion", type=str, required=True,
                         choices=FEATURES.keys(), help="Lesion to plot")
@@ -40,51 +41,74 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Validate command line arguments.
-    if not os.path.isfile(args.dice_stats_csv):
-        raise ValueError("dice_stats_csv does not exist: " +\
-                         args.dice_stats_csv)
+    for d in args.dice_stats_csv:
+        if not os.path.isfile(d):
+            raise ValueError("dice_stats_csv does not exist: " + d)
 
     # Extract the data.
-    models = []
-    with open(args.dice_stats_csv, 'r') as csvfile:
-        rows = csv.DictReader(csvfile)
+    # Format: model_name -> [raw_data]
+    models = {}
+    for dice_file in args.dice_stats_csv:
+        with open(dice_file, 'r') as csvfile:
+            rows = csv.DictReader(csvfile)
 
-        if args.boxplot:
-            box_data = []
-            for row in rows:
-                lesion = row['feature']
-                if not lesion == args.lesion:
-                    continue
+            if args.boxplot:
+                box_data = []
+                for row in rows:
+                    lesion = row['feature']
+                    if not lesion == args.lesion:
+                        continue
 
-                if None not in row:
-                    continue
+                    # If there is no raw data then we can skip this row.
+                    if not None in row:
+                        continue
 
-                model = string_to_model(row['model']).__name__
-                models.append(model)
-                box_data.append([float(v) for v in row[None] ])
+                    model = string_to_model(row['model']).__name__
 
-            plt.boxplot(box_data,
-                        medianprops={"color": "black", "linewidth": 2},
-                        boxprops={"facecolor": "lightblue", "color": "black"},
-                        patch_artist=True)
-        else:
-            for i, row in enumerate(rows):
-                lesion = row['feature']
-                if not lesion == args.lesion:
-                    continue
+                    if not model in models:
+                        models[model] = []
 
-                model = string_to_model(row['model']).__name__
-                med = float(row['median'])
-                lower_upper = (med - float(row['min']),
-                               float(row['max']) - med)
-                models.append(model)
+                    models[model] += [ float(v) for v in row[None] ]
+            else:
+                for i, row in enumerate(rows):
+                    lesion = row['feature']
+                    if not lesion == args.lesion:
+                        continue
 
-                plt.errorbar(len(models) - 1, med, marker='o',
-                             yerr=[[lower_upper[0]], [lower_upper[1]]] if args.errorbars else None)
+                    # If there is no raw data then we can skip this row.
+                    if not None in row:
+                        continue
 
-    # Generate the graph.
+                    model = string_to_model(row['model']).__name__
+
+                    if not model in models:
+                        models[model] = []
+
+                    models[model] += [ float(v) for v in row[None] ]
+
+    # Generate the plots.
+    if args.boxplot:
+        plt.boxplot(models.values(),
+                    medianprops={"color": "black", "linewidth": 2},
+                    boxprops={"facecolor": "lightblue", "color": "black"},
+                    patch_artist=True)
+    else:
+        for n, raw_data in enumerate(models.values()):
+            med = median(raw_data)
+
+            yerr = [[med - min(raw_data)], [max(raw_data) - med]]
+            if not args.errorbars:
+                yerr = None
+
+            plt.errorbar(n,
+                         med, marker='o',
+                         yerr=yerr)
+
+
+
     xtick_offset = 1 if args.boxplot else 0
-    plt.xticks(range(xtick_offset, len(models)+xtick_offset), models, rotation=90)
+    plt.xticks(range(xtick_offset, len(models.keys()) + xtick_offset),
+               models.keys(), rotation=90)
     plt.title(args.title.replace("%%FEATURE%%", FEATURES[args.lesion]))
     plt.gcf().set_figwidth(10) # inches
     plt.tight_layout()

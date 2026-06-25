@@ -1,6 +1,12 @@
 # Heatmap analysis of CNNs used to predict referable diabetic retinopathy
 
 This repository contains all the code to create the models and run analysis on the results.
+Please cite the following paper if you use this code in your research:
+```
+How does AI detect diabetic retinopathy from retinal photos? A heatmap analysis of 54 deep learning models.
+Timothy I. Murphy, James A. Armitage.
+medRxiv 2026.06.19.26356040; doi: https://doi.org/10.64898/2026.06.19.26356040
+```
 
 ## Datasets
 Data in ths study are sourced from:
